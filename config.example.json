@@ -1,0 +1,11 @@
+{
+  "wifi": {
+    "ssid": "your-wifi-name",
+    "password": "your-wifi-password"
+  },
+  "lights": [
+    { "name": "Living Room", "host": "192.168.1.50" },
+    { "name": "Bedroom", "host": "192.168.1.51" }
+  ],
+  "touch": { "x_min": 200, "x_max": 3700, "y_min": 240, "y_max": 3800 }
+}
