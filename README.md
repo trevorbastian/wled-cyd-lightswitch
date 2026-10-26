@@ -1,0 +1,57 @@
+# WLED Remote for the ESP32 "Cheap Yellow Display"
+
+Touchscreen remote for [WLED](https://kno.wled.ge/) lights, for the ESP32-2432S028R
+("CYD") board. Turn up to 4 WLED controllers on and off and set their colour. The
+screen updates instantly when the lights are changed from anywhere else.
+
+WiFi and lights are set up on the touchscreen. You can also pre-fill them in a
+`config.json` before flashing.
+
+## Building and flashing
+
+You only need **Python 3.8+**. The `cyd` script installs everything else (PlatformIO
+and the ESP32 toolchain) into a local `.venv` folder the first time you run it.
+
+| Windows | macOS / Linux |
+|---|---|
+| `cyd flash` | `./cyd flash` |
+
+That builds the firmware and uploads it to the board it finds on USB. Other commands:
+
+```
+cyd config      create config.json with your WiFi and lights (optional)
+cyd build       compile only
+cyd monitor     show the device's log output
+cyd ports       list serial ports
+cyd erase       wipe the board, including saved settings
+cyd --help      all commands and options
+```
+
+### Troubleshooting
+
+- **No board found:** use a USB data cable, not a charge-only one. On Windows and
+  macOS, install the [CH340 driver](https://www.wch-ic.com/downloads/CH341SER_EXE.html).
+- **Permission denied (Linux):** `sudo usermod -aG dialout $USER`, then log out and back in.
+- **Upload stalls at "Connecting...":** hold the board's **BOOT** button until it starts.
+- **Inverted colours or blank screen:** you may have a two-USB-port variant. Change
+  `-DILI9341_2_DRIVER=1` to `-DST7789_DRIVER=1` in `platformio.ini`.
+
+## Default settings (`config.json`)
+
+This file is optional. Create it with `cyd config` (it asks a few questions) or
+`cyd config --copy` (copies [config.example.json](config.example.json) for you to
+edit). Every section is optional:
+
+```json
+{
+  "wifi":   { "ssid": "MyNetwork", "password": "secret" },
+  "lights": [ { "name": "Living Room", "host": "192.168.1.50" } ],
+  "touch":  { "x_min": 200, "x_max": 3700, "y_min": 240, "y_max": 3800 }
+}
+```
+
+- The file is built into the firmware. Mistakes are reported when you build.
+- Changes made on the touchscreen survive reflashing, unless you edit `config.json`.
+  In that case the new file takes over.
+- **Settings → Restore defaults** on the device goes back to these values.
+- `config.json` is ignored by git because it contains your WiFi password.
