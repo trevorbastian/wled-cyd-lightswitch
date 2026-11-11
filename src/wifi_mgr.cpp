@@ -53,6 +53,10 @@ bool wifiConnected() {
     return WiFi.status() == WL_CONNECTED;
 }
 
+bool wifiConnectedTo(const String &ssid) {
+    return wifiConnected() && WiFi.SSID() == ssid;
+}
+
 const char *wifiFailReason() {
     switch (lastReason) {
         case 0:

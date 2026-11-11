@@ -1,0 +1,71 @@
+# Builds the firmware when a version tag (e.g. v1.2.0) is pushed, attaches it to
+# a GitHub Release, and publishes the browser flasher to GitHub Pages.
+#
+# One-time setup: repo Settings -> Pages -> Source: "GitHub Actions".
+# While the repo is private, the Pages step is skipped (GitHub's free plan only
+# serves Pages from public repos); the build and Release still run.
+
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # create the release
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # tags and history, for git describe
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Cache PlatformIO toolchain and libraries
+        uses: actions/cache@v4
+        with:
+          path: ~/.platformio
+          key: platformio-${{ runner.os }}-${{ hashFiles('platformio.ini') }}
+
+      - name: Build release
+        run: python cyd.py release --version "$GITHUB_REF_NAME"
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Re-running the workflow replaces the files on the existing release
+          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" dist/*.bin --clobber
+            exit 0
+          fi
+          # Tags with a suffix (v1.2.0-beta.1) are marked as pre-releases
+          prerelease=""
+          case "$GITHUB_REF_NAME" in *-*) prerelease="--prerelease" ;; esac
+          gh release create "$GITHUB_REF_NAME" dist/*.bin \
+            --title "$GITHUB_REF_NAME" --generate-notes $prerelease
+
+      - name: Upload flasher site
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  pages:
+    needs: build
+    # Pre-releases don't replace the version people install from the flasher
+    if: ${{ !github.event.repository.private && !contains(github.ref_name, '-') }}
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deploy
+        uses: actions/deploy-pages@v4

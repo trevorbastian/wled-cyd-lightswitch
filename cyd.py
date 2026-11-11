@@ -7,9 +7,13 @@ PlatformIO, which downloads the ESP32 toolchain and libraries as needed.
 """
 
 import argparse
+import configparser
+import functools
 import getpass
+import http.server
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -19,9 +23,12 @@ ROOT = Path(__file__).resolve().parent
 VENV = ROOT / ".venv"
 CONFIG = ROOT / "config.json"
 CONFIG_EXAMPLE = ROOT / "config.example.json"
+WEB = ROOT / "web"
+DIST = ROOT / "dist"
 
 PLATFORMIO_VERSION = "6.2.0"
 PIO_ENV = "cyd"
+RELEASE_ENV = "release"  # same firmware, but never embeds config.json
 MONITOR_BAUD = "115200"
 
 # USB-serial chips used on ESP32-2432S028 boards
@@ -88,16 +95,16 @@ def ensure_platformio(force=False):
             raise CommandError("Installing PlatformIO failed (see the pip output above).")
 
 
-def pio(*args, capture=False):
+def pio(*args, capture=False, env=None):
     """Runs PlatformIO from the project directory. Raises CommandError on failure."""
     ensure_platformio()
     cmd = [str(venv_python()), "-m", "platformio", *args]
     if capture:
-        result = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True)
+        result = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True, env=env)
         if result.returncode != 0:
             raise CommandError(f"PlatformIO failed:\n{result.stderr or result.stdout}")
         return result.stdout
-    code = subprocess.call(cmd, cwd=ROOT)
+    code = subprocess.call(cmd, cwd=ROOT, env=env)
     if code != 0:
         raise CommandError(f"PlatformIO exited with code {code}.")
     return None
@@ -318,6 +325,62 @@ def cmd_ports(args):
         print(f"{port:<20} {desc}{tag}")
 
 
+def firmware_name():
+    ini = configparser.ConfigParser(interpolation=None)
+    ini.read(ROOT / "platformio.ini", encoding="utf-8")
+    return ini.get(f"env:{PIO_ENV}", "custom_firmware_name")
+
+
+def git_version():
+    try:
+        out = subprocess.run(["git", "describe", "--tags", "--always", "--dirty"],
+                             cwd=ROOT, capture_output=True, text=True, check=True)
+        return out.stdout.strip() or "dev"
+    except (OSError, subprocess.CalledProcessError):
+        return "dev"
+
+
+def cmd_release(args):
+    version = args.version or git_version()
+    name = firmware_name()
+    info(f"Building {name} {version} (config.json is never included in release builds)")
+    # The firmware reports this version to the flasher, so it must match the manifest
+    pio("run", "-e", RELEASE_ENV, "-t", "mergebin", env={**os.environ, "CYD_FIRMWARE_VERSION": version})
+
+    if DIST.exists():
+        shutil.rmtree(DIST)
+    shutil.copytree(WEB, DIST)
+
+    slug = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
+    bin_name = f"{slug}-{re.sub(r'[^A-Za-z0-9._-]+', '-', version)}.bin"
+    shutil.copyfile(ROOT / ".pio" / "build" / RELEASE_ENV / "firmware-merged.bin", DIST / bin_name)
+
+    # ESP Web Tools manifest: https://esphome.github.io/esp-web-tools/
+    manifest = {
+        "name": name,
+        "version": version,
+        "new_install_prompt_erase": True,
+        "builds": [{"chipFamily": "ESP32", "parts": [{"path": bin_name, "offset": 0}]}],
+    }
+    (DIST / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+    info(f"Release files in {DIST.name}/: {bin_name}, manifest.json, flasher web page")
+
+    if args.serve:
+        serve(args.serve_port)
+
+
+def serve(port):
+    # Browsers only allow Web Serial on https:// pages or http://localhost
+    handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=str(DIST))
+    with http.server.ThreadingHTTPServer(("localhost", port), handler) as httpd:
+        info(f"Flasher running at http://localhost:{port}/ - open it in Chrome or Edge. "
+             "Press Ctrl+C to stop.")
+        try:
+            httpd.serve_forever()
+        except KeyboardInterrupt:
+            info("Stopped")
+
+
 def cmd_clean(args):
     pio("run", "-e", PIO_ENV, "-t", "clean")
     info("Build files removed")
@@ -374,6 +437,14 @@ def build_parser():
     p = add("erase", cmd_erase, "wipe the board's flash, including all saved settings")
     add_port(p)
     p.add_argument("-y", "--yes", action="store_true", help="don't ask for confirmation")
+
+    p = add("release", cmd_release,
+            "build a distributable image and the browser flasher page into dist/")
+    p.add_argument("--version", help="version to embed and publish (default: from 'git describe')")
+    p.add_argument("--serve", action="store_true",
+                   help="then serve the flasher page on localhost to try it out")
+    p.add_argument("--serve-port", type=int, default=8000, metavar="PORT",
+                   help="port for --serve (default: 8000)")
 
     add("ports", cmd_ports, "list serial ports and highlight likely boards")
     add("clean", cmd_clean, "delete build output")

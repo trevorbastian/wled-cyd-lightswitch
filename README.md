@@ -4,8 +4,15 @@ Touchscreen remote for [WLED](https://kno.wled.ge/) lights, for the ESP32-2432S0
 ("CYD") board. Turn up to 4 WLED controllers on and off and set their colour. The
 screen updates instantly when the lights are changed from anywhere else.
 
-WiFi and lights are set up on the touchscreen. You can also pre-fill them in a
-`config.json` before flashing.
+WiFi and lights are set up on the touchscreen. WiFi can also be entered in the
+browser right after installing. If you build it yourself, you can pre-fill both in
+a `config.json`.
+
+## Installing (no building needed)
+
+Open **https://trevorbastian.github.io/wled-cyd-lightswitch/** in Chrome or Edge on
+a computer, plug in the board, and click **Install**. Ready-made firmware files are
+also on the [releases page](https://github.com/trevorbastian/wled-cyd-lightswitch/releases).
 
 ## Building and flashing
 
@@ -24,6 +31,7 @@ cyd build       compile only
 cyd monitor     show the device's log output
 cyd ports       list serial ports
 cyd erase       wipe the board, including saved settings
+cyd release     build the release image and flasher page into dist/
 cyd --help      all commands and options
 ```
 
@@ -55,3 +63,30 @@ edit). Every section is optional:
   In that case the new file takes over.
 - **Settings → Restore defaults** on the device goes back to these values.
 - `config.json` is ignored by git because it contains your WiFi password.
+
+## Releasing
+
+Pushing a version tag builds and publishes a release automatically
+([.github/workflows/release.yml](.github/workflows/release.yml)):
+
+```
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+This builds the firmware, attaches it to a GitHub Release, and updates the
+browser flasher on GitHub Pages.
+
+- **Pre-releases:** tags with a suffix, such as `v1.1.0-beta.1`, are marked as
+  pre-releases and don't replace the version on the flasher page.
+- **Your settings stay private:** release builds never include `config.json`.
+- **Version number:** the version comes from the tag. It's shown in the device's
+  Settings screen and reported to the flasher.
+
+**One-time setup:** in the repository on GitHub, go to **Settings → Pages** and set
+**Source** to **GitHub Actions**. On GitHub's free plan, Pages only works for public
+repositories. While the repository is private, the Pages step is skipped, but the
+build and Release still run.
+
+**To try the flasher before releasing**, run `cyd release --serve` and open
+http://localhost:8000 in Chrome or Edge.
