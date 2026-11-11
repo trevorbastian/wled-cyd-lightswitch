@@ -1,6 +1,9 @@
 # PlatformIO pre-build script: validates the optional config.json in the project
 # root and embeds it in the firmware as the default settings.
 #
+# The "release" environment ignores config.json, so published binaries never
+# contain personal settings.
+#
 # Generates $BUILD_DIR/generated/default_config.h containing
 #   DEFAULT_CONFIG_JSON  - compact JSON string ("{}" if there is no config.json)
 #   DEFAULT_CONFIG_HASH  - changes whenever the config changes, so the device
@@ -31,7 +34,11 @@ def generate():
     gen_dir = os.path.join(env.subst("$BUILD_DIR"), "generated")  # noqa: F821
     path = os.path.join(project_dir, "config.json")
 
-    if os.path.exists(path):
+    if env["PIOENV"] == "release":  # noqa: F821
+        # Never put anyone's WiFi password into a distributable binary
+        print("Release build: ignoring config.json")
+        compact, digest = "{}", "none"
+    elif os.path.exists(path):
         try:
             with open(path, encoding="utf-8") as f:
                 cfg = json.load(f)

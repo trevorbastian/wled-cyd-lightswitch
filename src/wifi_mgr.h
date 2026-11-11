@@ -18,6 +18,8 @@ void wifiConnect(const String &ssid, const String &password);
 // Reconnects using the saved settings, if any
 void wifiConnectSaved();
 bool wifiConnected();
+// True once connected to this particular network (not still to a previous one)
+bool wifiConnectedTo(const String &ssid);
 // Human-readable reason for the most recent failed connection attempt
 const char *wifiFailReason();
 

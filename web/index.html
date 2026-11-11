@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>WLED CYD Lightswitch - Install</title>
+  <!-- Pinned so a new ESP Web Tools release can't change this page unexpectedly -->
+  <script type="module" src="https://unpkg.com/esp-web-tools@10.4.0/dist/web/install-button.js?module"></script>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      max-width: 40rem;
+      margin: 2rem auto;
+      padding: 0 1rem;
+      line-height: 1.5;
+      color: #222;
+    }
+    h1 { margin-bottom: 0; }
+    .version { color: #666; margin-top: 0.25rem; }
+    .install { margin: 2rem 0; }
+    .note {
+      background: #fff4e5;
+      border-left: 4px solid #f0a020;
+      padding: 0.5rem 1rem;
+    }
+    @media (prefers-color-scheme: dark) {
+      body { background: #1b1b1b; color: #ddd; }
+      .version { color: #999; }
+      .note { background: #3a2e1a; }
+      a { color: #8ab4f8; }
+    }
+  </style>
+</head>
+<body>
+  <h1>WLED CYD Lightswitch</h1>
+  <p class="version" id="version"></p>
+
+  <p>
+    A touchscreen remote for <a href="https://kno.wled.ge/">WLED</a> lights, for the
+    ESP32-2432S028R "Cheap Yellow Display" board. Turn up to 4 WLED controllers on and
+    off and set their colour.
+  </p>
+
+  <h2>Install</h2>
+  <ol>
+    <li>Plug the board into this computer with a USB data cable.</li>
+    <li>Click <b>Install</b> and choose the board's serial port.</li>
+    <li>When asked, enter your WiFi details. You can also skip this and set up WiFi on
+      the touchscreen instead.</li>
+    <li>On the board, tap the 4 crosshairs to calibrate the screen, then use
+      <b>Settings &rarr; Lights &rarr; Find lights</b> to add your WLED lights.</li>
+  </ol>
+
+  <div class="install">
+    <esp-web-install-button manifest="manifest.json">
+      <span slot="unsupported" class="note">
+        Your browser can't install firmware. Use <b>Chrome</b> or <b>Edge</b> on a
+        computer. Firefox, Safari and phones aren't supported.
+      </span>
+      <span slot="not-allowed" class="note">
+        Installing only works when this page is opened over https:// or from localhost.
+      </span>
+    </esp-web-install-button>
+  </div>
+
+  <h2>Troubleshooting</h2>
+  <ul>
+    <li><b>No serial port listed:</b> try a different USB cable (some only carry power).
+      On Windows or macOS, install the CH340 driver
+      (<a href="https://www.wch-ic.com/downloads/CH341SER_EXE.html">Windows</a>,
+      <a href="https://www.wch-ic.com/downloads/CH34XSER_MAC_ZIP.html">macOS</a>).</li>
+    <li><b>Install gets stuck connecting:</b> hold the board's <b>BOOT</b> button while
+      clicking Install.</li>
+    <li><b>Updating:</b> your WiFi and light settings are kept unless you choose to
+      erase the device.</li>
+  </ul>
+
+  <p>
+    Older versions and source code:
+    <a href="https://github.com/trevorbastian/wled-cyd-lightswitch/releases">GitHub releases</a>
+  </p>
+
+  <script>
+    fetch("manifest.json")
+      .then((r) => r.json())
+      .then((m) => { document.getElementById("version").textContent = "Version " + m.version; })
+      .catch(() => {});
+  </script>
+</body>
+</html>
